@@ -1,5 +1,5 @@
   
-#꧁༒☬𝓣𝓔𝓛𝓢𝓐 𝓑𝓞𝓣𝓢☬༒꧂
+
 
 from typing import Optional
 
@@ -14,7 +14,6 @@ from TELSA import dispatcher
 from TELSA.modules.helper_funcs.chat_status import user_admin
 from TELSA.modules.helper_funcs.string_handling import markdown_parser
 
-
 @run_async
 def get_rules(bot: Bot, update: Update):
     chat_id = update.effective_chat.id
@@ -24,7 +23,7 @@ def get_rules(bot: Bot, update: Update):
 # Do not async - not from a handler
 def send_rules(update, chat_id, from_pm=False):
     bot = dispatcher.bot
-    user = update.effective_user  
+    user = update.effective_user  # type: Optional[User]
     try:
         chat = bot.get_chat(chat_id)
     except BadRequest as excp:
@@ -36,13 +35,13 @@ def send_rules(update, chat_id, from_pm=False):
             raise
 
     rules = sql.get_rules(chat_id)
-    text = "THE RULES FOR *{}* are:\n\n{}".format(escape_markdown(chat.title), rules)
+    text = "The rules for *{}* are:\n\n{}".format(escape_markdown(chat.title), rules)
 
     if from_pm and rules:
         bot.send_message(user.id, text, parse_mode=ParseMode.MARKDOWN)
     elif from_pm:
-        bot.send_message(user.id, "NO RULES FOUND"
-                                  "IN THIS CHAT...!")
+        bot.send_message(user.id, "The group admins haven't set any rules for this chat yet. "
+                                  "This probably doesn't mean it's lawless though...!")
     elif rules:
         update.effective_message.reply_text("Contact me in PM to get this group's rules.",
                                             reply_markup=InlineKeyboardMarkup(
@@ -50,32 +49,32 @@ def send_rules(update, chat_id, from_pm=False):
                                                                        url="t.me/{}?start={}".format(bot.username,
                                                                                                      chat_id))]]))
     else:
-        update.effective_message.reply_text("NO RULES FOUND"
-                                            "IN THIS CHAT...!")
+        update.effective_message.reply_text("The group admins haven't set any rules for this chat yet. "
+                                            "This probably doesn't mean it's lawless though...!")
 
 
 @run_async
 @user_admin
-def add_rules(bot: Bot, update: Update):
+def set_rules(bot: Bot, update: Update):
     chat_id = update.effective_chat.id
-    msg = update.effective_message 
+    msg = update.effective_message  # type: Optional[Message]
     raw_text = msg.text
-    args = raw_text.split(None, 1)  
+    args = raw_text.split(None, 1)  # use python's maxsplit to separate cmd and args
     if len(args) == 2:
         txt = args[1]
-        offset = len(txt) - len(raw_text)  \
+        offset = len(txt) - len(raw_text)  # set correct offset relative to command
         markdown_rules = markdown_parser(txt, entities=msg.parse_entities(), offset=offset)
 
-        sql.add_rules(chat_id, markdown_rules)
-        update.effective_message.reply_text("✅DONE RULE ADDED✅")
+        sql.set_rules(chat_id, markdown_rules)
+        update.effective_message.reply_text("Successfully set rules for this group.")
 
 
 @run_async
 @user_admin
-def del_rules(bot: Bot, update: Update):
+def clear_rules(bot: Bot, update: Update):
     chat_id = update.effective_chat.id
-    sql.add_rules(chat_id, "")
-    update.effective_message.reply_text("🗑DONE DELETED RULES🗑")
+    sql.set_rules(chat_id, "")
+    update.effective_message.reply_text("Successfully cleared rules!")
 
 
 def __stats__():
@@ -85,7 +84,7 @@ def __stats__():
 def __import_data__(chat_id, data):
     # set chat rules
     rules = data.get('info', {}).get('rules', "")
-    sql.add_rules(chat_id, rules)
+    sql.set_rules(chat_id, rules)
 
 
 def __migrate__(old_chat_id, new_chat_id):
@@ -97,17 +96,19 @@ def __chat_settings__(chat_id, user_id):
 
 
 __help__ = """
-*ADMIN ONLY:*
-/addrules <keyword>:SET RULES FOR THIS CHAT
-/delrules: TO DELETE RULES FOR THIS CHAT
-[ㅤ](https://telegra.ph/file/67f862e4a591e2ebb159e.mp4)
+/rules: get the rules for this chat.
+ 
+*Admin only:*
+/setrules <your rules here>: set the rules for this chat.
+ 
+/clearrules: clear the rules for this chat.
 """
 
-__mod_name__ = "🧑🏻‍⚖️RULES👩🏻‍⚖️"
+__mod_name__ = "Rules"
 
 GET_RULES_HANDLER = CommandHandler("rules", get_rules, filters=Filters.group)
-SET_RULES_HANDLER = CommandHandler("addrules", add_rules, filters=Filters.group)
-RESET_RULES_HANDLER = CommandHandler("delrules", del_rules, filters=Filters.group)
+SET_RULES_HANDLER = CommandHandler("setrules", set_rules, filters=Filters.group)
+RESET_RULES_HANDLER = CommandHandler("clearrules", clear_rules, filters=Filters.group)
 
 dispatcher.add_handler(GET_RULES_HANDLER)
 dispatcher.add_handler(SET_RULES_HANDLER)
