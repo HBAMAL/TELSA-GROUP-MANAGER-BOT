@@ -1,1 +1,1 @@
-work: python3 -m tg_bot
+work: python3 -m TELSA
